@@ -136,13 +136,14 @@ static void txassemble(void *state)
 			while (s->datalen % (1024/8))
 				s->databuf[s->datalen++] = 0;
 			k = 0;
-			for (i=0, j=0; i<s->datalen/(1024/8); i++) {
+			for (i=0, j=0; i < s->datalen/(1024/8); i++) {
 				k = turboencode (s->databuf+i*(1024/8), 
 					   s->msgbuf+j, 1024, s->fecrate, 1);
 				if (s->inlv == 1 && (i != s->datalen/(1024/8) - 1))
 					interleave(s->msgbuf+j, k);
 				j += k;
 			}
+			printf("TX: TurboCodes. Enviados %d paquetes.\n", s->datalen/(1024/8));
 			s->msglen = j;
 			if (s->inlv == 1) {
 				while ((s->msglen % (2 * DataCarriers * SymbolBits)) != 0)
