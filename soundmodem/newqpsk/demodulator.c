@@ -33,7 +33,6 @@
 #include "modem.h"
 #include "complex.h"
 #include "modemconfig.h"
-#include "fec.h"
 #include "filter.h"
 #include "newqpskrx.h"
 #include "tbl.h"
@@ -45,8 +44,6 @@
 
 static const struct modemparams demodparams[] = {
 	{ "bps", "Bits/s", "Bits per second", "2500", MODEMPAR_NUMERIC, { n: { 1000, 5000, 100, 500 } } },
-	{ "inlv", "Interleave", "Interleave depth", "8", MODEMPAR_NUMERIC, { n: { 0, 16, 1, 4 } } },
-	{ "fec", "FEC", "FEC level", "3", MODEMPAR_NUMERIC, { n: { 0, 3, 1, 1 } } },
 	{ "mintune", "Tune length", "Minimum tune preamble length", "16", MODEMPAR_NUMERIC, { n: { 0, 32, 1, 1 } } },
 	{ "minsync", "Sync length", "Minimum sync preamble length", "16", MODEMPAR_NUMERIC, { n: { 8, 32, 1, 1 } } },
 	{ NULL }
@@ -70,31 +67,15 @@ static void *demodconfig(struct modemchannel *chan, unsigned int *samplerate, co
 	} else
 		s->bps = 2500;
 	if (params[1]) {
-		s->fec.inlv = strtoul(params[1], NULL, 0);
-		if (s->fec.inlv < 0)
-			s->fec.inlv = 0;
-		if (s->fec.inlv > 16)
-			s->fec.inlv = 16;
-	} else
-		s->fec.inlv = 8;
-	if (params[2]) {
-		s->fec.feclevel = strtoul(params[2], NULL, 0);
-		if (s->fec.feclevel < 0)
-			s->fec.feclevel = 0;
-		if (s->fec.feclevel > 3)
-			s->fec.feclevel = 3;
-	} else
-		s->fec.feclevel = 3;
-	if (params[3]) {
-		s->mintune = strtoul(params[3], NULL, 0);
+		s->mintune = strtoul(params[1], NULL, 0);
 		if (s->mintune < 0)
 			s->mintune = 0;
 		if (s->mintune > 32)
 			s->mintune = 32;
 	} else
 		s->mintune = 16;
-	if (params[4]) {
-		s->minsync = strtoul(params[4], NULL, 0);
+	if (params[2]) {
+		s->minsync = strtoul(params[2], NULL, 0);
 		if (s->minsync < 8)
 			s->minsync = 8;
 		if (s->minsync > 32)
@@ -115,7 +96,6 @@ static void demodinit(void *state, unsigned int samplerate, unsigned int *bitrat
 	f1 = 0.1 * rate;
 	f2 = 0.9 * rate;
 	init_tbl();
-	init_fec(&s->fec);
 	init_filter(&s->filt, rate, f1, f2);
 	init_newqpskrx(state);
 	*bitrate = s->bps;

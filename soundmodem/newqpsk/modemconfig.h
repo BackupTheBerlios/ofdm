@@ -28,7 +28,8 @@
 #define FirstTuneCarr		(FirstDataCarr+DataCarrSepar)	/* 15	*/
 #define TuneCarrSepar		(DataCarrSepar*4)		/* 12	*/
 
-#define RxTuneTimeout		56
+#define RxSyncTimeout		48
+#define RxDataTimeout		32
 
 #define RxAverFollow		4
 
@@ -44,6 +45,8 @@
 #define TxPreData		2
 #define TxPostData		1
 #define TxJamLen		16
+
+#define	CBlockLen		8
 
 #define MaxInlv			16
 

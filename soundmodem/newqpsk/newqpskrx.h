@@ -3,9 +3,10 @@
 
 /* --------------------------------------------------------------------- */
 
+#define	DataBufSize	1280
+
 struct rxstate {
 	struct modemchannel *chan;
-	struct fecstate fec;
 	struct filter filt;
 	unsigned int bps;
 	unsigned int shreg;
@@ -14,6 +15,12 @@ struct rxstate {
 	void (*rxroutine) (void *);
 	float *rxwindowfunc;
 	unsigned int rxphase;
+
+        unsigned char msgbuf[DataBufSize*3*8];
+	int msglen;
+	int pktlen;
+	int feclevel;
+	int foundcblock;
 
 	complex rxbuf[256];
 	unsigned bufptr;

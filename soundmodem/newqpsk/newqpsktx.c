@@ -3,16 +3,18 @@
 #include <unistd.h>
 #include <time.h>
 #include <math.h>
+#include <string.h>
 
 #include "modem.h"
 
 #include "modemconfig.h"
 #include "complex.h"
-#include "fec.h"
+#include "viterbi.h"
 #include "filter.h"
 #include "newqpsktx.h"
 #include "tbl.h"
 #include "misc.h"
+#include "cblock.h"
 
 /* --------------------------------------------------------------------- */
 
@@ -20,8 +22,6 @@ static void txtune(void *);
 static void txsync(void *);
 static void txpredata(void *);
 static void txdata(void *);
-static void txpostdata(void *);
-static void txjam(void *);
 static void txflush(void *);
 
 /* --------------------------------------------------------------------- */
@@ -33,8 +33,9 @@ void init_newqpsktx(void *state)
 
 	/* switch to tune mode */
 	s->txroutine = txtune;
-	s->statecntr = s->tunelen;
+	s->statecntr = 0;
 	s->txwindowfunc = ToneWindowOut;
+	s->msglen = 0;
 
 	/* copy initial tune vectors */
 	for (i = 0; i < TuneCarriers; i++) {
@@ -45,30 +46,103 @@ void init_newqpsktx(void *state)
 
 /* --------------------------------------------------------------------- */
 
-static unsigned getbitbatch(void *state)
+static void encodenone(unsigned char *out, unsigned char *in, int len)
 {
-	struct txstate *s = (struct txstate *)state;
-	unsigned int i, bit, data = 0;
-	unsigned char buf;
+	int i;
 
-	for (i = 0; i < s->fec.bitbatchlen; i++) {
-		if (s->shreg <= 1) {
-			if (!pktget(s->chan, &buf, 1))
-				break;
-			s->shreg = buf;
-			s->shreg |= 0x100;
-		}
-		bit = s->shreg & 1;
-		s->shreg >>= 1;
-		data |= bit << i;
+	while (len-- > 0) {
+		for (i = 7; i >= 0; i--)
+			*out++ = (*in >> i) & 1;
+		in++;
+	}
+}
+
+static int puncturepattern[14] = {1, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1};
+
+static int puncture(unsigned char *buf, int len)
+{
+	unsigned char *tmp = alloca(len);
+	unsigned char *p = buf;
+	int i = 0;
+	int j = 0;
+
+	while (len-- > 0) {
+		if (puncturepattern[i++])
+			tmp[j++] = *p;
+
+		i %= 14;
+		p++;
 	}
 
-	if (i == s->fec.bitbatchlen)
-		s->empty = 0;
-	else
-		s->empty = 1;
+	memcpy(buf, tmp, j);
 
-	return data;
+	return j;
+}
+
+static void interleave(unsigned char *buf, int len)
+{
+	unsigned char *tmp = alloca(len);
+	int i = 0;
+	int j = 0;
+
+	memcpy(tmp, buf, len);
+
+	while (i < len) {
+		while (rbits16(j) >= len)
+			j++;
+
+		buf[rbits16(j++)] = tmp[i++];
+	}
+}
+
+static void txassemble(void *state)
+{
+	struct txstate *s = (struct txstate *)state;
+
+	/* encoder tail */
+	s->databuf[s->datalen++] = 0;
+
+	/* error correction coding */
+	switch (s->feclevel) {
+	default:
+	case 0:
+		encodenone(s->msgbuf, s->databuf, s->datalen);
+		s->msglen = s->datalen * 8;
+		break;
+	case 1:
+		encode27(s->msgbuf, s->databuf, s->datalen);
+		s->msglen = puncture(s->msgbuf, s->datalen * 2 * 8);
+		break;
+	case 2:
+		encode27(s->msgbuf, s->databuf, s->datalen);
+		s->msglen = s->datalen * 2 * 8;
+		break;
+	case 3:
+		encode37(s->msgbuf, s->databuf, s->datalen);
+		s->msglen = s->datalen * 3 * 8;
+		break;
+	}
+
+	/* pad up to full symbol length */
+	while ((s->msglen % (DataCarriers * SymbolBits)) != 0)
+		s->msgbuf[s->msglen++] = 0;
+
+	/* interleave */
+	interleave(s->msgbuf, s->msglen);
+
+	/* make a control block */
+	enc_cblock(s->cblock, s->msglen / DataCarriers / SymbolBits, s->feclevel);
+}
+
+static unsigned getword(void *state)
+{
+	struct txstate *s = (struct txstate *)state;
+	unsigned i, word = 0;
+
+	for (i = 0; i < DataCarriers; i++)
+		word |= s->msgbuf[s->statecntr++] << i;
+
+	return word;
 }
 
 /* --------------------------------------------------------------------- */
@@ -119,6 +193,10 @@ int newqpsktx(void *state, complex *samples)
 	complex tmp[WindowLen];
 	int i;
 
+	/* assemble the packet if not done so yet */
+	if (s->msglen == 0)
+		txassemble(state);
+
 	/* clear all FFT bins */
 	for (i = 0; i < WindowLen; i++) {
 		s->fftbuf[i].re = 0.0;
@@ -126,10 +204,7 @@ int newqpsktx(void *state, complex *samples)
 	}
 
 	/* process the data */
-	if (!s->tuneonly)
-		s->txroutine(state);
-	else
-		txtune(state);
+	s->txroutine(state);
 
 	/* fft */
 	fft(s->fftbuf, tmp);
@@ -178,12 +253,13 @@ static void txtune(void *state)
 		j += TuneCarrSepar;
 	}
 
-	if (!s->tuneonly && --s->statecntr <= 0) {
-		/* switch to sync mode */
-		s->txroutine = txsync;
-		s->statecntr = s->synclen;
-		s->txwindowfunc = DataWindowOut;
-	}
+	if (s->statecntr++ < s->tunelen)
+		return;
+
+	/* switch to sync mode */
+	s->txroutine = txsync;
+	s->statecntr = 0;
+	s->txwindowfunc = DataWindowOut;
 }
 
 /* --------------------------------------------------------------------- */
@@ -210,58 +286,44 @@ static void txsync(void *state)
 		j += TuneCarrSepar;
 	}
 
-	if (--s->statecntr <= 0) {
-		/* switch to pre data mode */
-		s->txroutine = txpredata;
-		s->statecntr = TxPreData;
-		/* copy initial data vectors */
-		for (i = 0; i < DataCarriers; i++) {
-			s->datavect[i].re = DataIniVectI[i];
-			s->datavect[i].im = DataIniVectQ[i];
-		}
-		/* initialise the interleaver */
-		init_inlv(&s->fec);
+	if (s->statecntr++ < s->synclen)
+		return;
+
+	/* switch to pre data mode */
+	s->txroutine = txpredata;
+	s->statecntr = 0;
+
+	/* copy initial data vectors */
+	for (i = 0; i < DataCarriers; i++) {
+		s->datavect[i].re = DataIniVectI[i];
+		s->datavect[i].im = DataIniVectQ[i];
 	}
 }
 
 /* --------------------------------------------------------------------- */
 
-static void encodeword(void *state, int jam)
+static void encodeword(void *state, int symbolbits)
 {
 	struct txstate *s = (struct txstate *)state;
 	unsigned i, j, k, data;
 	complex z;
 	float phi;
 
-	/* run through interleaver only if not jamming */
-	if (!jam) {
-		for (i = 0; i < SymbolBits; i++)
-			s->txword[i] = inlv(&s->fec, s->txword[i]);
-	}
-
 	j = FirstDataCarr;
 	for (i = 0; i < DataCarriers; i++) {
 		/* collect databits for this symbol */
-		data = 0;
-		for (k = 0; k < SymbolBits; k++) {
-			data <<= 1;
+		for (data = 0, k = 0; k < symbolbits; k++)
 			if (s->txword[k] & (1 << i))
-				data |= 1;
-		}
+				data |= (1 << k);
 
 		/* gray encode */
 		data ^= data >> 1;
 
 		/* flip the top bit */
-		data ^= 1 << (SymbolBits - 1);
+		data ^= 1 << (symbolbits - 1);
 
 		/* modulate */
-		phi = data * 2 * M_PI / PhaseLevels;
-
-		/* if jamming, turn by maximum phase error */
-		if (jam)
-			phi += M_PI / PhaseLevels;
-
+		phi = data * 2.0 * M_PI / (1 << symbolbits);
 		z.re = cos(phi);
 		z.im = sin(phi);
 		s->fftbuf[j] = cmul(s->datavect[i], z);
@@ -280,17 +342,18 @@ static void encodeword(void *state, int jam)
 static void txpredata(void *state)
 {
 	struct txstate *s = (struct txstate *)state;
-	int i;
 
-	for (i = 0; i < SymbolBits; i++)
-		s->txword[i] = 0;
+	s->txword[0] = s->cblock[s->statecntr];
 
-	encodeword(state, 0);
+	/* BPSK */
+	encodeword(state, 1);
 
-	if (--s->statecntr <= 0) {
-		/* switch to data mode */
-		s->txroutine = txdata;
-	}
+	if (s->statecntr++ < CBlockLen)
+		return;
+
+	/* switch to data mode */
+	s->txroutine = txdata;
+	s->statecntr = 0;
 }
 
 static void txdata(void *state)
@@ -298,73 +361,31 @@ static void txdata(void *state)
 	struct txstate *s = (struct txstate *)state;
 	int i;
 
-	for (i = 0; i < SymbolBits; i++) {
-		s->txword[i] = getbitbatch(state);
-		s->txword[i] = fecencode(&s->fec, s->txword[i]);
-	}
-
-	encodeword(state, 0);
-
-	if (s->empty) {
-		/* switch to post data mode */
-		s->txroutine = txpostdata;
-		s->statecntr = TxPostData + (s->fec.inlv * DataCarriers + 1) / SymbolBits;
-	}
-}
-
-static void txpostdata(void *state)
-{
-	struct txstate *s = (struct txstate *)state;
-	int i;
-
 	for (i = 0; i < SymbolBits; i++)
-		s->txword[i] = 0;	
+		s->txword[i] = getword(state);
 
-	encodeword(state, 0);
+	encodeword(state, SymbolBits);
 
-#if 0
-	if (!hdlc_txempty(&s->hdlc)) {
-		/* there is new data - switch back to data mode */
-		s->txroutine = txdata;
+	if (s->statecntr < s->msglen)
 		return;
-	}
-#endif
 
-	if (--s->statecntr <= 0) {
-		/* switch to jamming mode */
-		s->txroutine = txjam;
-		s->statecntr = TxJamLen;
-		srand(time(NULL));
-	}
-}
-
-static void txjam(void *state)
-{
-	struct txstate *s = (struct txstate *)state;
-	int i;
-
-	for (i = 0; i < SymbolBits; i++)
-		s->txword[i] = rand();
-
-	encodeword(state, 1);
-
-	if (--s->statecntr <= 0) {
-		/* switch to buffer flush mode */
-		s->txroutine = txflush;
-		s->statecntr = 3;
-	}
+	/* switch to post data mode */
+	s->txroutine = txflush;
+	s->statecntr = 0;
 }
 
 static void txflush(void *state)
 {
 	struct txstate *s = (struct txstate *)state;
 
-	if (--s->statecntr <= 0) {
-		/* get ready for the next transmission */
-		init_newqpsktx(state);
-		/* signal the main routine we're done */
-		s->txdone = 1;
-	}
+	if (s->statecntr++ < 3)
+		return;
+
+	/* get ready for the next transmission */
+	init_newqpsktx(state);
+
+	/* signal the main routine we're done */
+	s->txdone = 1;
 }
 
 /* --------------------------------------------------------------------- */

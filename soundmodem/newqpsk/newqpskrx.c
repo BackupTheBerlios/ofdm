@@ -8,16 +8,17 @@
 
 #include "complex.h"
 #include "modemconfig.h"
-#include "fec.h"
 #include "filter.h"
 #include "newqpskrx.h"
 #include "tbl.h"
 #include "misc.h"
+#include "cblock.h"
+#include "viterbi.h"
 
 /* --------------------------------------------------------------------- */
 
-static void rxidle(void *);
 static void rxtune(void *);
+static void rxsync(void *);
 static void rxdata(void *);
 
 /* --------------------------------------------------------------------- */
@@ -30,8 +31,8 @@ void init_newqpskrx(void *state)
 	/* clear dcd */
 	pktsetdcd(s->chan, 0);
 	if (s->mintune != 0) {
-		/* switch to idle mode */
-		s->rxroutine = rxidle;
+		/* switch to waiting tune mode */
+		s->rxroutine = rxtune;
 		s->rxwindowfunc = ToneWindowInp;
 		s->carrfreq = 0.0;
 		s->acceptance = 0;
@@ -42,8 +43,8 @@ void init_newqpskrx(void *state)
 			s->tunecorr[i].im = 0.0;
 		}
 	} else {
-		/* switch to tune mode */
-		s->rxroutine = rxtune;
+		/* switch to waiting sync mode */
+		s->rxroutine = rxsync;
 		s->rxwindowfunc = DataWindowInp;
 		s->atsymbol = 1;
 		s->acceptance = 0;
@@ -65,23 +66,104 @@ void init_newqpskrx(void *state)
 
 /* --------------------------------------------------------------------- */
 
-static void putbitbatch(void *state, unsigned data)
+static void decodenone(unsigned char *out, unsigned char *in, int len)
 {
-	struct rxstate *s = (struct rxstate *)state;
-	unsigned int i, bit;
-	unsigned char buf;
+	int i;
 
-	for (i = 0; i < s->fec.bitbatchlen; i++) {
-		bit = (data & (1 << i)) ? 1 : 0;
-		s->shreg |= bit << 9;
-		if (s->shreg & 1) {
-			buf = (s->shreg >> 1) & 0xff;
-			pktput(s->chan, &buf, 1);
-			s->shreg &= ~0xff;
-			s->shreg |= 0x100;
-		}
-		s->shreg >>= 1;
+	len /= 8;
+
+	while (len-- > 0) {
+		*out = 0;
+		for (i = 0; i < 8; i++)
+			*out = (*out << 1) | (*in++ > 127);
+		out++;
 	}
+}
+
+static int puncturepattern[14] = {1, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1};
+
+static int unpuncture(unsigned char *buf, int len)
+{
+	unsigned char tmp[DataBufSize * 3 * 8], *p;
+	int i, j;
+
+	p = buf;
+	i = 0;
+	j = 0;
+	while (len > 0) {
+		if (puncturepattern[i++]) {
+			tmp[j++] = *p++;
+			len--;
+		} else {
+			tmp[j++] = 128;
+		}
+		if (i == 14)
+			i = 0;
+	}
+	memcpy(buf, tmp, j);
+
+	return j;
+}
+
+static void deinterleave(unsigned char *buf, int len)
+{
+	unsigned char tmp[30720];
+	int i, j;
+
+	memcpy(tmp, buf, len);
+
+	i = 0;
+	j = 0;
+	while (i < len) {
+		while (rbits16(j) >= len)
+			j++;
+
+		buf[i++] = tmp[rbits16(j++)];
+	}
+}
+
+void recvsymbol(struct rxstate *s, unsigned char symbol)
+{
+	if (s->msglen < sizeof(s->msgbuf))
+		s->msgbuf[s->msglen++] = symbol;
+	else
+		logprintf(MLOG_INFO, "Message truncated\n");
+}
+
+void recvdone(struct rxstate *s, long *metric)
+{
+	unsigned char buf[1280];
+	int len;
+
+	/* deinterleave it */
+	deinterleave(s->msgbuf, s->msglen);
+
+	/* fec decoding */
+	switch (s->feclevel) {
+	case 0:
+		decodenone(buf, s->msgbuf, s->msglen);
+		len = s->msglen / 8;
+		*metric = 0;
+		break;
+	case 1:
+		s->msglen = unpuncture(s->msgbuf, s->msglen);
+		viterbi27(metric, buf, s->msgbuf, s->msglen / 2);
+		len = s->msglen / 2 / 8;
+		break;
+	case 2:
+		viterbi27(metric, buf, s->msgbuf, s->msglen / 2);
+		len = s->msglen / 2 / 8;
+		break;
+	case 3:
+		viterbi37(metric, buf, s->msgbuf, s->msglen / 3);
+		len = s->msglen / 3 / 8;
+		break;
+	default:
+		len = 0;
+		break;
+	}
+
+	pktput(s->chan, buf, len);
 }
 
 /* --------------------------------------------------------------------- */
@@ -177,7 +259,7 @@ void newqpskrx(void *state, complex *in)
 
 /* --------------------------------------------------------------------- */
 
-static void rxidle(void *state)
+static void rxtune(void *state)
 {
 	struct rxstate *s = (struct rxstate *)state;
 	float x;
@@ -238,12 +320,12 @@ static void rxidle(void *state)
 	}
 	logprintf(MLOG_INFO, "Tune tones: %s\n", buf);
 
-	/* switch to tune mode */
-	s->rxroutine = rxtune;
+	/* switch to sync mode */
+	s->rxroutine = rxsync;
 	s->rxwindowfunc = DataWindowInp;
 	s->atsymbol = 1;
 	s->acceptance = 0;
-	s->statecntr = 2 * RxTuneTimeout;
+	s->statecntr = 2 * RxSyncTimeout;
 	for (i = 0; i < TuneCarriers; i++) {
 		s->power_at[i] = s->tunepower[i];
 		s->corr1_at[i].re = s->tunepower[i];
@@ -261,7 +343,7 @@ static void rxidle(void *state)
 
 /* --------------------------------------------------------------------- */
 
-static void rxtune(void *state)
+static void rxsync(void *state)
 {
 	struct rxstate *s = (struct rxstate *)state;
 	int i, j, cntr;
@@ -271,7 +353,7 @@ static void rxtune(void *state)
 
 	/* timeout only if mintune not zero */
 	if (s->mintune && s->statecntr-- <= 0) {
-		/* timeout waiting sync - go back to idling */
+		/* timeout waiting sync */
 		init_newqpskrx(state);
 		return;
 	}
@@ -374,11 +456,9 @@ static void rxtune(void *state)
 	/* switch to data mode */
 	s->rxroutine = rxdata;
 	s->atsymbol ^= 1;
-	s->acceptance = DCDMaxDrop / 2;
-	s->updhold = RxUpdateHold;
-	s->bitbatches = 0;
-	/* init deinterleaver */
-	init_inlv(&s->fec);
+	s->statecntr = 0;
+	s->foundcblock = 0;
+
 	for (i = 0; i < DataCarriers; i++) {
 		s->phesum[i] = 0.0;
 		s->pheavg[i] = 0.0;
@@ -396,40 +476,41 @@ static void rxtune(void *state)
 static void rxdata(void *state)
 {
 	struct rxstate *s = (struct rxstate *)state;
-	int rxword[SymbolBits], errword[SymbolBits];
-	int i, j, bits, data, dcd, errs, cor1, cor2;
+	unsigned char rxsoftword[SymbolBits][DataCarriers];
+	unsigned char bpskword[DataCarriers];
+	int i, j, bits, data, dcd, cor1, cor2;
 	unsigned int prev2, prev1, curr;
 	float pherr[DataCarriers];
 	complex z;
 	float x;
 	char buf[256];
+	long metric;
 
 	/* nothing to do if inter-symbol */
 	if ((s->atsymbol ^= 1) == 0)
 		return;
 
+	if (!s->foundcblock && s->statecntr++ >= RxDataTimeout) {
+		/* timeout waiting control block */
+		logprintf(MLOG_INFO, "Timeout waiting control block\n");
+		init_newqpskrx(state);
+		return;
+	}
+
 	curr = s->rxptr;
 	prev1 = (curr - 1) % RxPipeLen;
 	prev2 = (curr - 2) % RxPipeLen;
 
-	for (i = 0; i < SymbolBits; i++) {
-		rxword[i] = 0;
-		errword[i] = 0;
-	}
-
-	/*
-	 * Delay the dcd/pherror/power/sync updates for the first
-	 * `RxUpdateHold´ symbols because tune phase hasn't
-	 * necessarily ended yet.
-	 */
-	if (s->updhold)
-		s->updhold--;
-
 	for (i = 0; i < DataCarriers; i++) {
-		/* get the angle and add bias */
 		z = ccor(s->rxpipe[curr][i], s->rxpipe[prev2][i]);
+
+		/* bpsk demodulation */
+		bpskword[i] = (z.re > 0) ? 255 : 0;
+
+		/* get the angle and add bias */
 		x = carg(z) + M_PI / PhaseLevels;
 
+		/* shift it to range 0 ... 2*PI */
 		if (x < 0)
 			x += 2 * M_PI;
 
@@ -437,7 +518,7 @@ static void rxdata(void *state)
 		bits = (int) (x * PhaseLevels / (2 * M_PI));
 		bits &= (1 << SymbolBits) - 1;
 
-		/* calculate phase error (`0.5´ compensates the bias) */
+		/* calculate phase error (`0.5' compensates the bias) */
 		pherr[i] = x - (bits + 0.5) * 2 * M_PI / PhaseLevels;
 
 		/* flip the top bit back */
@@ -448,13 +529,16 @@ static void rxdata(void *state)
 		for (j = 0; j < SymbolBits; j++)
 			data ^= bits >> j;
 
-		/* put the bits to rxword (top carrier first) */
-		for (j = 0; j < SymbolBits; j++)
-			if (data & (1 << (SymbolBits - 1 - j)))
-				rxword[j] |= 1 << i;
+		/* put the bits to rxword */
+		for (j = 0; j < SymbolBits; j++) {
+			if (data & (1 << j))
+				rxsoftword[j][i] = 255;
+			else
+				rxsoftword[j][i] = 0;
+		}
 
-		/* skip the rest if still holding updates */
-		if (s->updhold)
+		/* skip the rest if control block not found yet */
+		if (!s->foundcblock)
 			continue;
 
 		/* update phase error power average */
@@ -473,12 +557,21 @@ static void rxdata(void *state)
 		s->correl[i] = avg(s->correl[i], x, RxDataSyncFollow);
 	}
 
-	/* feed the data to the decoder */
-	for (i = 0; i < SymbolBits; i++) {
-		rxword[i] = deinlv(&s->fec, rxword[i]);
-		rxword[i] = fecdecode(&s->fec, rxword[i], &errword[i]);
-		putbitbatch(state, rxword[i]);
+	if (!s->foundcblock) {
+		if (dec_cblock(bpskword, &s->pktlen, &s->feclevel) != -1) {
+			s->msglen = 0;
+			s->statecntr = 0;
+			s->foundcblock = 1;
+			logprintf(MLOG_INFO, "Control block: packet length: %d, FEC level: %d\n",
+				s->pktlen, s->feclevel);
+		}
+		return;
 	}
+
+	/* feed the data to the decoder */
+	for (i = 0; i < SymbolBits; i++)
+		for (j = 0; j < DataCarriers; j++)
+			recvsymbol(s, rxsoftword[i][j]);
 
 	/* count carriers that have small enough phase error */
 	for (dcd = 0, i = 0; i < DataCarriers; i++)
@@ -487,16 +580,10 @@ static void rxdata(void *state)
 
 	/* decide if this was a "good" symbol */
 	if (dcd >= DataCarriers / 2) {
-		/* count FEC errors */
-		for (i = 0; i < SymbolBits; i++) {
-			for (j = 0; j < DataCarriers; j++)
-				if (errword[i] & (1 << j))
-					s->fecerrors[j]++;
-			s->bitbatches++;
-		}
-
 		/* sync tracking */
-		for (cor1 = cor2 = i = 0; i < DataCarriers; i++) {
+		cor1 = 0;
+		cor2 = 0;
+		for (i = 0; i < DataCarriers; i++) {
 			if (s->power[i] < fabs(s->correl[i]) * RxSyncCorrThres) {
 				if (s->correl[i] >= 0)
 					cor1++;
@@ -526,29 +613,18 @@ static void rxdata(void *state)
 		/* correct frequency error */
 		x = phaseavg(pherr, DataCarriers);
 		s->carrfreq += RxFreqFollowWeight * x * 2.0 / WindowLen;
-
-		/* increase acceptance */
-		if (s->acceptance < DCDMaxDrop)
-			s->acceptance++;
-	} else {
-		/* drop acceptance */
-		if (s->acceptance > 0)
-			s->acceptance--;
 	}
 
-	if (s->acceptance > 0)
+	s->statecntr++;
+
+	if (s->statecntr < s->pktlen)
 		return;
 
-	/* DCDMaxDrop subsequent "bad" symbols, it's gone... */
-	logprintf(MLOG_INFO, "Carrier lost at: %+.2fHz\n",
-		  s->carrfreq / (2.0 * M_PI / s->srate));
-	errs = 0;
-	buf[0] = 0;
-	for (i = 0; i < DataCarriers; i++) {
-		errs += s->fecerrors[i];
-		sprintf(buf + strlen(buf), "%02d ", s->fecerrors[i]);
-	}
-	logprintf(MLOG_INFO, "FEC errors: %s: %03d / %03d\n", buf, errs, s->bitbatches);
+	recvdone(s, &metric);
+
+	logprintf(MLOG_INFO, "Packet done at: %+.2fHz, final path metric: %ld\n",
+		  s->carrfreq / (2.0 * M_PI / s->srate),
+		  metric);
 
 	buf[0] = 0;
 	for (i = 0; i < DataCarriers; i++) {
@@ -556,7 +632,7 @@ static void rxdata(void *state)
 	}
 	logprintf(MLOG_INFO, "S/N ratio:  %s dB\n", buf);
 
-	/* go back to idling */
+	/* go back to waiting tune */
 	init_newqpskrx(state);
 	return;
 }

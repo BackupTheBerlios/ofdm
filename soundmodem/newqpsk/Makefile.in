@@ -123,18 +123,18 @@ noinst_LIBRARIES = libnewqpsk.a
 libnewqpsk_a_SOURCES = \
 	modulator.c newqpsktx.c \
 	demodulator.c newqpskrx.c \
-	fec.c bch.c tbl.c filter.c
+	tbl.c filter.c \
+	viterbi27.c viterbi37.c cblock.c crc.c vittab.c
 
 
 noinst_HEADERS = \
-	bch.h complex.h fec.h fectable.h filter-i386.h filter.h \
-	misc.h modemconfig.h newqpskrx.h newqpsktx.h tbl.h
+	complex.h filter-i386.h filter.h \
+	misc.h modemconfig.h newqpskrx.h newqpsktx.h tbl.h \
+	viterbi.h viterbi27.h viterbi37.h cblock.h crc.h vittab.h
 
 
 @CROSSCOMP_FALSE@noinst_PROGRAMS = @CROSSCOMP_FALSE@genfilt
 @CROSSCOMP_FALSE@genfilt_SOURCES = @CROSSCOMP_FALSE@genfilt.c
-
-EXTRA_DIST = README.newqpsk
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = ../config.h
 CONFIG_CLEAN_FILES = 
@@ -147,8 +147,9 @@ LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
 libnewqpsk_a_LIBADD = 
 libnewqpsk_a_OBJECTS =  modulator.$(OBJEXT) newqpsktx.$(OBJEXT) \
-demodulator.$(OBJEXT) newqpskrx.$(OBJEXT) fec.$(OBJEXT) bch.$(OBJEXT) \
-tbl.$(OBJEXT) filter.$(OBJEXT)
+demodulator.$(OBJEXT) newqpskrx.$(OBJEXT) tbl.$(OBJEXT) \
+filter.$(OBJEXT) viterbi27.$(OBJEXT) viterbi37.$(OBJEXT) \
+cblock.$(OBJEXT) crc.$(OBJEXT) vittab.$(OBJEXT)
 @CROSSCOMP_FALSE@noinst_PROGRAMS =  genfilt$(EXEEXT)
 PROGRAMS =  $(noinst_PROGRAMS)
 
@@ -279,7 +280,6 @@ distdir: $(DISTFILES)
 	    || cp -p $$d/$$file $(distdir)/$$file || :; \
 	  fi; \
 	done
-
 info-am:
 info: info-am
 dvi-am:

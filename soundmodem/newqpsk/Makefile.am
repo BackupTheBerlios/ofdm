@@ -5,11 +5,13 @@ noinst_LIBRARIES = libnewqpsk.a
 libnewqpsk_a_SOURCES = \
 	modulator.c newqpsktx.c \
 	demodulator.c newqpskrx.c \
-	fec.c bch.c tbl.c filter.c
+	tbl.c filter.c \
+	viterbi27.c viterbi37.c cblock.c crc.c vittab.c
 
 noinst_HEADERS = \
-	bch.h complex.h fec.h fectable.h filter-i386.h filter.h \
-	misc.h modemconfig.h newqpskrx.h newqpsktx.h tbl.h
+	complex.h filter-i386.h filter.h \
+	misc.h modemconfig.h newqpskrx.h newqpsktx.h tbl.h \
+	viterbi.h viterbi27.h viterbi37.h cblock.h crc.h vittab.h
 
 if CROSSCOMP
 else
@@ -22,5 +24,3 @@ filter-i386.h:	genfilt$(EXEEXT)
 		./genfilt > filter-i386.h
 
 endif
-
-EXTRA_DIST = README.newqpsk

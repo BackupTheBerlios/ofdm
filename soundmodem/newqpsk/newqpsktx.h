@@ -6,26 +6,31 @@
 
 /* --------------------------------------------------------------------- */
 
+/* this results in a maximum of 1280*3*8/30 = 1024 symbols */
+#define	DataBufSize	1280
+
 struct txstate {
 	struct modemchannel *chan;
-	struct fecstate fec;
 	struct filter filt;
 	unsigned int bps;
-	unsigned int shreg;
 	unsigned int bufsize;
 	unsigned int tunelen;
 	unsigned int synclen;
 	void (*txroutine) (void *);
 	int statecntr;
-	int tuneonly;
 	int txdone;
-	int empty;
 	float *txwindowfunc;
 	complex tunevect[TuneCarriers];
 	complex datavect[DataCarriers];
 	unsigned txword[SymbolBits];
 	complex txwin[WindowLen];
 	complex fftbuf[WindowLen];
+	unsigned cblock[CBlockLen+1];
+	unsigned char databuf[DataBufSize];
+	unsigned char msgbuf[DataBufSize*3*8];
+	int datalen;
+	int msglen;
+	int feclevel;
 };
 
 /* --------------------------------------------------------------------- */
