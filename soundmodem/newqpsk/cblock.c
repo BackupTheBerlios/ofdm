@@ -86,7 +86,7 @@ static void deinterleave(unsigned char *out, unsigned char *in)
 		out[i] = in[interleavetable[i]];
 }
 
-void enc_cblock(unsigned *cblock, int len, int lvl)
+void enc_cblock(unsigned *cblock, int len, int lvl, int fecrate, int reqfecrate)
 {
 	unsigned char data[CBlockDLen];
 	unsigned char symbols[CBlockBits];
@@ -95,10 +95,11 @@ void enc_cblock(unsigned *cblock, int len, int lvl)
 
 	memset(data, 0, sizeof(data));
 
-	data[0] = ((len >> 8) & 0x03) | ((lvl << 4) & 0xf0);
+	data[0] = ((len >> 8) & 0x03) | ((lvl << 2) & 0x3c) | (((reqfecrate-10) & 0x18) << 3);
 	data[1] = len & 0xff;
+	data[2] = ((fecrate - 10) & 0x1f) | (((reqfecrate - 10) & 0x7) << 5) ;
 
-	append_crc_ccitt(data, 2);
+	append_crc_ccitt(data, 3);
 
 //	fprintf(stderr, "enc_cblock: len=%d lvl=%d (%d %d %d %d)\n", len, lvl, data[0], data[1], data[2], data[3]);
 
@@ -114,7 +115,7 @@ void enc_cblock(unsigned *cblock, int len, int lvl)
 			cblock[i + 1] |= *ptr++ << j;
 }
 
-int dec_cblock(unsigned char data[DataCarriers], int *len, int *lvl)
+int dec_cblock(unsigned char data[DataCarriers], int *len, int *lvl, int *fecrate, int *reqfecrate)
 {
 	static unsigned char symbols[CBlockBits];
 	unsigned char tmp[CBlockBits];
@@ -135,11 +136,13 @@ int dec_cblock(unsigned char data[DataCarriers], int *len, int *lvl)
 
 	viterbi37(&metric, mesg, tmp, CBlockBits / 3);
 
-	if (!check_crc_ccitt(mesg, 4))
+	if (!check_crc_ccitt(mesg, 5))
 		return -1;
 
 	*len = ((mesg[0] & 0x03) << 8) | mesg[1];
-	*lvl = ((mesg[0] & 0xf0) >> 4);
+	*lvl = ((mesg[0] & 0x3c) >> 2);
+	*fecrate = ((mesg[2] & 0x1f) + 10);
+	*reqfecrate = (((mesg[2] & 0xe0) >> 5) + 10) + ((mesg[0] & 0xc0) >> 3);
 
 //	fprintf(stderr, "dec_cblock: len=%d lvl=%d (%d %d %d %d)\n", *len, *lvl, mesg[0], mesg[1], mesg[2], mesg[3]);
 

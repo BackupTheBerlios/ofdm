@@ -39,14 +39,18 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include "turbo.h"
+#include "fec.h"
 
 /* --------------------------------------------------------------------- */
 
 static const struct modemparams modparams[] = {
 	{ "bps", "Bits/s", "Bits per second", "2500", MODEMPAR_NUMERIC, { n: { 1000, 5000, 100, 500 } } },
-	{ "fec", "FEC", "FEC level", "3", MODEMPAR_NUMERIC, { n: { 0, 3, 1, 1 } } },
+	{ "fec", "FEC", "FEC level", "4", MODEMPAR_NUMERIC, { n: { 0, 4, 1, 1 } } },
 	{ "tunelen", "Tune length", "Tune preamble length", "32", MODEMPAR_NUMERIC, { n: { 0, 64, 1, 1 } } },
 	{ "synclen", "Sync length", "Sync preamble length", "32", MODEMPAR_NUMERIC, { n: { 16, 64, 1, 1 } } },
+	{ "fecrate", "FEC. TC-rate", "FEC level for TC (fec = 4)", "20", MODEMPAR_NUMERIC, { n: { 10, 30, 1, 1 } } },
+	{ "inlv", "Interleaving", "Interleaving depth", "off", MODEMPAR_COMBO, { c: { "off", "packet", "global", } } },
 	{ NULL }
 };
 
@@ -55,6 +59,8 @@ static const struct modemparams modparams[] = {
 static void *modconfig(struct modemchannel *chan, unsigned int *samplerate, const char *params[])
 {
 	struct txstate *s = calloc(1, sizeof(struct txstate));
+	int out[2];
+	int in;
 
 	if ((s = calloc(1, sizeof(struct txstate))) == NULL)
 		logprintf(MLOG_FATAL, "out of memory\n");
@@ -71,10 +77,10 @@ static void *modconfig(struct modemchannel *chan, unsigned int *samplerate, cons
 		s->feclevel = strtoul(params[1], NULL, 0);
 		if (s->feclevel < 0)
 			s->feclevel = 0;
-		if (s->feclevel > 3)
-			s->feclevel = 3;
+		if (s->feclevel > 4)
+			s->feclevel = 4;
 	} else
-		s->feclevel = 3;
+		s->feclevel = 4;
 	if (params[2]) {
 		s->tunelen = strtoul(params[2], NULL, 0);
 		if (s->tunelen < 0)
@@ -91,7 +97,30 @@ static void *modconfig(struct modemchannel *chan, unsigned int *samplerate, cons
 			s->synclen = 64;
 	} else
 		s->synclen = 32;
+	if (params[4]) {
+		s->fecrate = strtoul(params[4], NULL, 0);
+		if (s->fecrate > 30)
+			s->fecrate = 30;
+		if (s->fecrate < 10)
+			s->fecrate = 10;
+	} else
+		s->fecrate = 20;
+	if (params[5]) {
+		if (strcmp(params[5], "off") == 0)
+			s->inlv = 0;
+		else if (strcmp(params[5], "packet") == 0)
+			s->inlv = 1;
+		else if (strcmp(params[5], "global") == 0)
+			s->inlv = 2;
+	} else
+		s->inlv = 0;
+
+	printf("inlv = %d\n", s->inlv);
+					
 	*samplerate = (int) (3.0 * SAMPLERATE(s->bps) + 0.5);
+	s->reqfecrate = 20;
+	s->tcnoresponse = 0;
+	
 	return s;
 }
 
@@ -119,7 +148,7 @@ static void modmodulate(void *state, unsigned int txdelay)
 	samples = alloca(s->bufsize * sizeof(int16_t));
 	cbuf = alloca(s->bufsize * sizeof(complex));
 
-	for (i = 0; i < sizeof(s->databuf) - 1; i++)
+	for (i = 0; i < sizeof(s->databuf); i++)
 		if (!pktget(s->chan, &s->databuf[i], 1))
 			break;
 

@@ -10,10 +10,15 @@
 #include "modemconfig.h"
 #include "filter.h"
 #include "newqpskrx.h"
+#include "newqpsktx.h"
 #include "tbl.h"
 #include "misc.h"
 #include "cblock.h"
 #include "viterbi.h"
+#include "turbo.h"
+#include "soundio.h"
+#include "fec.h"
+#include "crc.h"
 
 /* --------------------------------------------------------------------- */
 
@@ -107,7 +112,7 @@ static int unpuncture(unsigned char *buf, int len)
 
 static void deinterleave(unsigned char *buf, int len)
 {
-	unsigned char tmp[30720];
+	unsigned char tmp[2*30720];
 	int i, j;
 
 	memcpy(tmp, buf, len);
@@ -132,11 +137,21 @@ void recvsymbol(struct rxstate *s, unsigned char symbol)
 
 void recvdone(struct rxstate *s, long *metric)
 {
-	unsigned char buf[1280];
-	int len;
-
+	unsigned char buf[2*1280];
+	unsigned char msgtemp[2*1280*8];
+	unsigned char msgtemp2[2*1280*8];
+	unsigned char msgtemp3[2*1280*8];
+	int len, ite, errors;
+	int i, j, k;
+	struct txstate *txstate = s->chan->modstate;
+	int iterations;
+	float fiterations;
+	int rate;
+	int terrors, ttotal;
+	
 	/* deinterleave it */
-	deinterleave(s->msgbuf, s->msglen);
+	if (s->inlv == 2)
+		deinterleave(s->msgbuf, s->msglen);
 
 	/* fec decoding */
 	switch (s->feclevel) {
@@ -157,6 +172,110 @@ void recvdone(struct rxstate *s, long *metric)
 	case 3:
 		viterbi37(metric, buf, s->msgbuf, s->msglen / 3);
 		len = s->msglen / 3 / 8;
+		break;
+	case 4:
+		if (s->fecrate > 30) {
+			if (s->inlv == 1)
+				deinterleave(s->msgbuf, s->msglen);
+
+			for (i=0;i<s->msglen;i++)  
+				if (s->msgbuf[i] > 127)
+					msgtemp[i/8] |= 1 << (i%8);
+				else
+					msgtemp[i/8] &= ~(1 << (i%8));
+			s->msglen = ((s->msglen / 8) & ~7);
+			len = bchdecode(msgtemp, msgtemp3, s->msglen);
+			bzero(buf, msgtemp3[0]-3);
+			memcpy(buf, msgtemp3+1, msgtemp3[0]-3);
+			k = bchencode(msgtemp3, msgtemp2, len);
+			len = msgtemp3[0]-3;
+			errors = -1;
+			if (check_crc_ccitt(msgtemp3, msgtemp3[0])) {
+				errors = 0;
+				for(i=0;i<k;i++)
+					for (j=0;j<8;j++)
+						if (((msgtemp[i] ^ msgtemp2[i]) >> j) & 1) 
+							errors++;
+				sprintf(msgtemp, "\t\t%1.6f\t", (double)errors / (double)(8*s->msglen));
+			}
+			else {
+				sprintf(msgtemp, "\t\t%1.6f\t", 0.5);
+			}
+			write(2, msgtemp, strlen(msgtemp));
+			printf("RX: BCH (Small Packets). Errors (bits) = %d / %d \n", errors, 8*s->msglen);
+					
+			break;
+
+		}
+		iterations = 0;
+		len = turbogetoutput(1024, s->fecrate, 1);
+		sprintf(msgtemp, "\t%d\t", s->fecrate);
+		write(2, msgtemp, strlen(msgtemp));
+	
+		ttotal = terrors = 0;
+		for (i=0; i<s->msglen/len; i++) {
+			if (s->inlv == 1)
+				deinterleave(s->msgbuf+len*i, i==(s->msglen/len - 1)?s->msglen-(i*len):len);
+			ite = turbodecode(s->msgbuf+len*i, buf+(1024/8)*i, 1024, s->fecrate, 10, 1);
+			errors = -1;
+			if (ite >= 0) {
+				iterations += ite*ite;
+				turboencode(buf+(1024/8)*i, msgtemp, 1024, s->fecrate, 1);
+				errors = 0;
+				for (j=0; j<len; j++) {
+					if (msgtemp[j] == 1 && s->msgbuf[j+len*i] != 255)
+						errors++;
+					if (msgtemp[j] == 0 && s->msgbuf[j+len*i] != 0)
+						errors++;
+				}
+			}
+			else 
+				iterations += 20*20;
+			printf("RX: TurboCode-Packet #%d (rate = %d): %d iterations. Errors = %d/%d\n", i, s->fecrate, ite, errors, len);
+			if (errors > -1) {
+				terrors += errors;
+				ttotal += len;	
+			}
+			else {
+				terrors += len/2;
+				ttotal += len;
+			}
+		}
+		if (i > 0) { 
+			sprintf(msgtemp, "%1.6f\t", (double)terrors / (double)ttotal);
+			write(2, msgtemp, strlen(msgtemp));
+			fiterations = sqrt(iterations/(float)i);
+			printf("RX: Iteraciones cuadratica media = %f\n",fiterations);
+			rate = s->fecrate;
+			if (fiterations < 2 && rate != 10) {
+				if (rate > 11)
+					s->channelstate++;
+				else if (fiterations == 0) 
+					s->channelstate++;
+				else  
+					s->channelstate = 0;
+					
+				if (rate > 10 && s->channelstate > 10.0 / (rate - 10.0)) {
+					rate--;
+					s->channelstate = 0;
+				}
+			}
+			else 
+				s->channelstate = 0;
+
+			if (fiterations > 2.5) 
+				rate += 2;
+			if (fiterations > 5)
+				rate += 2;
+				
+			if (rate > 30)
+				rate = 30;
+			if (rate < 10)
+				rate = 10;
+	
+			txstate->reqfecrate = rate;
+		}
+		len = i*1024/8;
 		break;
 	default:
 		len = 0;
@@ -484,7 +603,11 @@ static void rxdata(void *state)
 	complex z;
 	float x;
 	char buf[256];
+	char temp[256];
 	long metric;
+	struct modemchannel *mc = s->chan;
+	struct txstate *txstate = mc->modstate;
+		
 
 	/* nothing to do if inter-symbol */
 	if ((s->atsymbol ^= 1) == 0)
@@ -558,12 +681,13 @@ static void rxdata(void *state)
 	}
 
 	if (!s->foundcblock) {
-		if (dec_cblock(bpskword, &s->pktlen, &s->feclevel) != -1) {
+		if (dec_cblock(bpskword, &s->pktlen, &s->feclevel, &s->fecrate, &txstate->fecrate) != -1) {
+			s->pktlen = 2*s->pktlen;
 			s->msglen = 0;
 			s->statecntr = 0;
 			s->foundcblock = 1;
-			logprintf(MLOG_INFO, "Control block: packet length: %d, FEC level: %d\n",
-				s->pktlen, s->feclevel);
+			printf("RX: Control block: packet length: %d, FEC level: %d, FEC = %d, requested FEC = %d\n",s->pktlen, s->feclevel, s->fecrate, txstate->fecrate);
+			txstate->tcnoresponse = 0;
 		}
 		return;
 	}
@@ -631,6 +755,12 @@ static void rxdata(void *state)
 		sprintf(buf + strlen(buf), "%2.0f ", 10 * log10(s->phemax * 2 / s->phesum[i]));
 	}
 	logprintf(MLOG_INFO, "S/N ratio:  %s dB\n", buf);
+	for (i=0,x=0.0;i<DataCarriers;i++)
+		x += s->phesum[i];
+
+	sprintf(temp,"%2.1f\n", 10 * log10((DataCarriers*s->phemax *2) / x));
+	write(2,temp, strlen(temp));
+	printf("S/N ratio = %2.1f\n", 10 * log10((DataCarriers*s->phemax *2) / x));
 
 	/* go back to waiting tune */
 	init_newqpskrx(state);

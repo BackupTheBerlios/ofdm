@@ -6,12 +6,12 @@ libnewqpsk_a_SOURCES = \
 	modulator.c newqpsktx.c \
 	demodulator.c newqpskrx.c \
 	tbl.c filter.c \
-	viterbi27.c viterbi37.c cblock.c crc.c vittab.c
+	viterbi27.c viterbi37.c cblock.c crc.c vittab.c turbo.c fec.c
 
 noinst_HEADERS = \
 	complex.h filter-i386.h filter.h \
-	misc.h modemconfig.h newqpskrx.h newqpsktx.h tbl.h \
-	viterbi.h viterbi27.h viterbi37.h cblock.h crc.h vittab.h
+	misc.h modemconfig.h newqpskrx.h newqpsktx.h fectable.h tbl.h \
+	viterbi.h viterbi27.h viterbi37.h cblock.h crc.h vittab.h turbo.h fec.h
 
 if CROSSCOMP
 else

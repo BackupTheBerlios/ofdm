@@ -7,7 +7,7 @@
 /* --------------------------------------------------------------------- */
 
 /* this results in a maximum of 1280*3*8/30 = 1024 symbols */
-#define	DataBufSize	1280
+#define	DataBufSize	2*1280  // 2048 symbols
 
 struct txstate {
 	struct modemchannel *chan;
@@ -27,10 +27,14 @@ struct txstate {
 	complex fftbuf[WindowLen];
 	unsigned cblock[CBlockLen+1];
 	unsigned char databuf[DataBufSize];
-	unsigned char msgbuf[DataBufSize*3*8];
+	unsigned char msgbuf[DataBufSize*3*8+100];
 	int datalen;
 	int msglen;
 	int feclevel;
+	int fecrate;
+	int reqfecrate;
+	int tcnoresponse;
+	int inlv;
 };
 
 /* --------------------------------------------------------------------- */

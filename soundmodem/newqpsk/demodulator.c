@@ -36,6 +36,7 @@
 #include "filter.h"
 #include "newqpskrx.h"
 #include "tbl.h"
+#include "fec.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -46,6 +47,7 @@ static const struct modemparams demodparams[] = {
 	{ "bps", "Bits/s", "Bits per second", "2500", MODEMPAR_NUMERIC, { n: { 1000, 5000, 100, 500 } } },
 	{ "mintune", "Tune length", "Minimum tune preamble length", "16", MODEMPAR_NUMERIC, { n: { 0, 32, 1, 1 } } },
 	{ "minsync", "Sync length", "Minimum sync preamble length", "16", MODEMPAR_NUMERIC, { n: { 8, 32, 1, 1 } } },
+	{ "inlv", "Interleaving", "Interleaving depth", "off", MODEMPAR_COMBO, { c: { "off", "packet", "global", } } },
 	{ NULL }
 };
 
@@ -54,6 +56,7 @@ static const struct modemparams demodparams[] = {
 static void *demodconfig(struct modemchannel *chan, unsigned int *samplerate, const char *params[])
 {
 	struct rxstate *s;
+	int out[2], in;
 
 	if ((s = calloc(1, sizeof(struct rxstate))) == NULL)
 		logprintf(MLOG_FATAL, "out of memory");
@@ -82,7 +85,24 @@ static void *demodconfig(struct modemchannel *chan, unsigned int *samplerate, co
 			s->minsync = 32;
 	} else
 		s->mintune = 16;
+
+	if (params[3]) {
+		if (strcmp(params[3], "off") == 0)
+			s->inlv = 0;
+		if (strcmp(params[3], "packet") == 0)
+			s->inlv = 1;
+		if (strcmp(params[3], "global") == 0)
+			s->inlv = 2;
+	} else
+		s->inlv = 0;
+	
 	*samplerate = (int) (3.0 * SAMPLERATE(s->bps) + 0.5);
+	s->channelstate = 0;
+	createturboencodetable(1024, 1);
+	bchGenerate64(7);
+	bchEncode64(13, out);
+	in=bchDecode64(out);
+	printf("Codifico 13 y decodifico %d. %s-%d\n", in, params[3], s->inlv);
 	return s;
 }
 

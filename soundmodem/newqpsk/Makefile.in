@@ -1,6 +1,6 @@
-# Makefile.in generated automatically by automake 1.4-p5 from Makefile.am
+# Makefile.in generated automatically by automake 1.4-p4 from Makefile.am
 
-# Copyright (C) 1994, 1995-8, 1999, 2001 Free Software Foundation, Inc.
+# Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
@@ -120,21 +120,14 @@ INCLUDES = -I$(top_srcdir)/soundcard
 
 noinst_LIBRARIES = libnewqpsk.a
 
-libnewqpsk_a_SOURCES = \
-	modulator.c newqpsktx.c \
-	demodulator.c newqpskrx.c \
-	tbl.c filter.c \
-	viterbi27.c viterbi37.c cblock.c crc.c vittab.c
+libnewqpsk_a_SOURCES =  	modulator.c newqpsktx.c 	demodulator.c newqpskrx.c 	tbl.c filter.c 	viterbi27.c viterbi37.c cblock.c crc.c vittab.c turbo.c fec.c
 
 
-noinst_HEADERS = \
-	complex.h filter-i386.h filter.h \
-	misc.h modemconfig.h newqpskrx.h newqpsktx.h tbl.h \
-	viterbi.h viterbi27.h viterbi37.h cblock.h crc.h vittab.h
+noinst_HEADERS =  	complex.h filter-i386.h filter.h 	misc.h modemconfig.h newqpskrx.h newqpsktx.h fectable.h tbl.h 	viterbi.h viterbi27.h viterbi37.h cblock.h crc.h vittab.h turbo.h fec.h
 
 
-@CROSSCOMP_FALSE@noinst_PROGRAMS = @CROSSCOMP_FALSE@genfilt
-@CROSSCOMP_FALSE@genfilt_SOURCES = @CROSSCOMP_FALSE@genfilt.c
+@CROSSCOMP_FALSE@noinst_PROGRAMS = genfilt
+@CROSSCOMP_FALSE@genfilt_SOURCES = genfilt.c
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = ../config.h
 CONFIG_CLEAN_FILES = 
@@ -149,7 +142,8 @@ libnewqpsk_a_LIBADD =
 libnewqpsk_a_OBJECTS =  modulator.$(OBJEXT) newqpsktx.$(OBJEXT) \
 demodulator.$(OBJEXT) newqpskrx.$(OBJEXT) tbl.$(OBJEXT) \
 filter.$(OBJEXT) viterbi27.$(OBJEXT) viterbi37.$(OBJEXT) \
-cblock.$(OBJEXT) crc.$(OBJEXT) vittab.$(OBJEXT)
+cblock.$(OBJEXT) crc.$(OBJEXT) vittab.$(OBJEXT) turbo.$(OBJEXT) \
+fec.$(OBJEXT)
 @CROSSCOMP_FALSE@noinst_PROGRAMS =  genfilt$(EXEEXT)
 PROGRAMS =  $(noinst_PROGRAMS)
 
@@ -168,7 +162,7 @@ DIST_COMMON =  ChangeLog Makefile.am Makefile.in
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
-TAR = gtar
+TAR = tar
 GZIP_ENV = --best
 SOURCES = $(libnewqpsk_a_SOURCES) $(genfilt_SOURCES)
 OBJECTS = $(libnewqpsk_a_OBJECTS) $(genfilt_OBJECTS)

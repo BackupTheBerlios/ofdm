@@ -3,7 +3,7 @@
 
 /* --------------------------------------------------------------------- */
 
-#define	DataBufSize	1280
+#define	DataBufSize	1280*2
 
 struct rxstate {
 	struct modemchannel *chan;
@@ -74,6 +74,9 @@ struct rxstate {
 	float phemax;			/* maximum phase error sum      */
 
 	int fecerrors[DataCarriers];	/* FEC errors per carrier       */
+	int fecrate;
+	int channelstate;
+	int inlv;
 };
 
 /* --------------------------------------------------------------------- */

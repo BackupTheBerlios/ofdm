@@ -1,146 +1,126 @@
-#include "modemconfig.h"
 #include "fec.h"
-#include "fectable.h"
-#include "bch.h"
-#include "misc.h"
 
-/* --------------------------------------------------------------------- */
 
-unsigned deinlv(struct fecstate *f, unsigned in)
+/** Fec (64,x) for Small Packets  */
+/*  Possible x = 7, 10, 16, 18, 24, 30, 36 
+   ******************************************* */
+
+
+#define POL7  05231045543503271737
+#define POL10 0472622305527250155
+#define POL16 06331141367235453
+
+
+static int bchHeaderTable[65536][2];
+static int l_value, l_value_log;
+
+int bchencode(unsigned char *in, unsigned char *out, int length)
 {
-	unsigned i, ptr, out;
-
-	if (!f->inlv)
-		return in;
-
-	out = 0;
-	ptr = f->inlvptr;
-
-	for (i = 0; i < DataCarriers; i++) {
-		out |= f->inlvpipe[ptr] & InterleavePattern[i];
-		ptr = (ptr + f->inlv) % (f->inlv * DataCarriers);
+	int i, j, k ,n;
+	in[length] = 0;
+	in[length+1] = 0;
+	k = (8*length)/l_value_log;
+	if (((8*length)/l_value_log)%8)
+		k++;
+	for (j=0, i=0; i < k; j+=8, i++) {
+		n = *(int *)&in[(l_value_log*i)/8];
+		bchEncode64(( n >> ((l_value_log*i)%8)) & (l_value - 1), (int *)&out[j]);
 	}
-
-	f->inlvpipe[f->inlvptr] = in;
-	f->inlvptr = (f->inlvptr + 1) % (f->inlv * DataCarriers);
-
-	return out;
+	return (j);
 }
 
-unsigned inlv(struct fecstate *f, unsigned in)
+int bchdecode(unsigned char *in, unsigned char *out, int length)
 {
-	unsigned i, ptr, out;
-
-	if (!f->inlv)
-		return in;
-
-	ptr = f->inlvptr;
-
-	for (i = 0; i < DataCarriers; i++) {
-		f->inlvpipe[ptr] |= in & InterleavePattern[i];
-		ptr = (ptr + f->inlv) % (f->inlv * DataCarriers);
+	int i, j, k;
+	for (i=0; i < ((l_value_log*length)/64)+1; i++)
+		out[i] = 0;
+	for (i=0, j=0;i<length; i+=8, j+=l_value_log) {
+		k = *(int *)&out[j/8];
+		k = *(int *)&in[i];
+		k = j % 8;
+		k = j / 8;
+		*(int *)&out[j/8] |= bchDecode64((int *)&in[i]) << (j%8);
+		k = *(int *)&out[j/8];
 	}
-
-	out = f->inlvpipe[f->inlvptr];
-	f->inlvpipe[f->inlvptr] = 0;
-	f->inlvptr = (f->inlvptr + 1) % (f->inlv * DataCarriers);
-
-	return out;
+	i = (l_value_log*(length/8))/8;
+	if ((l_value_log*(length/8) % 8))
+		i++;
+	return (i);
 }
+	
 
-/* --------------------------------------------------------------------- */
-
-static unsigned fec1511encode(unsigned in)
+void bchGenerate64(int x)
 {
-	unsigned i, out;
+	int i, j, k, n;
+	int nval[3]={7,10,16};
+	int bchMatrix[16][63];
+	int len_code;
+	
+	int bchHeaderPoly[3][2]={{POL7 & 0xffffffff,(POL7  >> 32) & 0xffffffff},				{POL10 & 0xffffffff,(POL10 >> 32) & 0xffffffff},				{POL16 & 0xffffffff,(POL16 >> 32) & 0xffffffff}};
+	n = 0;			
+			
+	while(n < 3 && nval[n] != x)
+		n++;
 
-	in &= 0x7ff;
-	out = 0;
-
-	for (i = 0; i < 11; i++)
-		if (in & (1 << i))
-			out ^= FEC1511EncodeTable[i];
-
-	return in | out;
-}
-
-static unsigned fec1511decode(unsigned in, unsigned *err)
-{
-	unsigned crc;
-
-	crc = fec1511encode(in);
-	crc ^= in;
-	crc >>= 11;
-	*err = FEC1511DecodeTable[crc];
-
-	return *err ^ in;
-}
-
-/* --------------------------------------------------------------------- */
-
-static unsigned walshencode(unsigned in)
-{
-	return WalshTable[in & 0x1f];
-}
-
-static unsigned walshdecode(unsigned in, unsigned *err)
-{
-	unsigned i, out, diff, dist, best;
-
-	out = 0;
-	best = 16;
-
-	for (i = 0; i < 32; i++) {
-		diff = in ^ WalshTable[i];
-		dist = hweight16(diff);
-		if (dist < best) {
-			out = i;
-			best = dist;
-			*err = diff;
+	if (n == 3)
+		return;
+	
+	len_code = 0;
+	for (i=0; i<64;i++) {
+		if (i<32) {
+			if ((bchHeaderPoly[n][0] >> i) & 1)
+				len_code = i;
+		}
+		else {
+		        if ((bchHeaderPoly[n][1] >> (i-32)) & 1)
+				len_code = i;
 		}
 	}
-
-	return out;
-}
-
-/* --------------------------------------------------------------------- */
-
-unsigned fecdecode(struct fecstate *f, unsigned data, unsigned *errors)
-{
-	switch (f->feclevel) {
-	case 0:
-		errors = 0;
-		break;
-	case 1:
-		data = fec1511decode(data, errors);
-		break;
-	case 2:
-		data = decode_bch_codeword(data, errors);
-		break;
-	case 3:
-		data = walshdecode(data, errors);
-		break;
+	len_code++;
+	
+	for(i=0;i<x;i++)
+		for(j=0;j<63;j++) {
+			k=j-i;
+			while(k<0)
+				k+=len_code;
+			bchMatrix[i][j]=(bchHeaderPoly[n][k/32]>>(k%32))&1;
+		}
+	l_value_log = x;
+	l_value = 1;
+	i = x;
+	while (i--)
+		l_value <<= 1;
+	for(i=0;i<l_value;i++) {
+		bchHeaderTable[i][0] = 0;
+		bchHeaderTable[i][1] = 0;
+		for(j=0;j<63;j++)
+			for(k=0;k<x;k++) 
+				bchHeaderTable[i][j/32] ^= (((i>>k)&1)* bchMatrix[k][j])<<(j%32);
 	}
-	return data;
 }
 
-unsigned fecencode(struct fecstate *f, unsigned data)
+int bchDecode64(int in[2])
 {
-	switch (f->feclevel) {
-	case 0:
-		break;
-	case 1:
-		data = fec1511encode(data);
-		break;
-	case 2:
-		data = encode_bch_codeword(data);
-		break;
-	case 3:
-		data = walshencode(data);
-		break;
+	int i, j, k, n;
+	int min, out=0;
+
+	min = 63;
+	
+	for (i=0;i<l_value;i++) {
+		for(j=0, k=0;j<63 && k<min;j++)
+			k += (((bchHeaderTable[i][j/32] ^ in[j/32]) >> (j%32)) &1);
+		if (k < min) {
+			min = k;
+			out = i;
+		}
 	}
-	return data;
+	return (out);
 }
 
-/* --------------------------------------------------------------------- */
+void bchEncode64(int in,int out[2])
+{
+	out[0] = bchHeaderTable[in][0];
+	out[1] = bchHeaderTable[in][1];
+}
+
 

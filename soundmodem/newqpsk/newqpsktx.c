@@ -15,6 +15,9 @@
 #include "tbl.h"
 #include "misc.h"
 #include "cblock.h"
+#include "turbo.h"
+#include "fec.h"
+#include "crc.h"
 
 /* --------------------------------------------------------------------- */
 
@@ -84,6 +87,7 @@ static void interleave(unsigned char *buf, int len)
 	unsigned char *tmp = alloca(len);
 	int i = 0;
 	int j = 0;
+	printf("inter = %d\n", len);
 
 	memcpy(tmp, buf, len);
 
@@ -98,6 +102,10 @@ static void interleave(unsigned char *buf, int len)
 static void txassemble(void *state)
 {
 	struct txstate *s = (struct txstate *)state;
+	int i, j, k;
+	unsigned char temp[2*1024];
+	unsigned char temp2[2*1024];
+	int small=0;
 
 	/* encoder tail */
 	s->databuf[s->datalen++] = 0;
@@ -121,17 +129,65 @@ static void txassemble(void *state)
 		encode37(s->msgbuf, s->databuf, s->datalen);
 		s->msglen = s->datalen * 3 * 8;
 		break;
+	case 4:
+		if (s->datalen >= 60) {
+			/* pad up to multiple of TC packets */
+			printf("TX: TurboCodes. Length = %d --  FEC rate = %d -- Req FEC rate = %d\n", s->datalen, s->fecrate, s->reqfecrate);
+			while (s->datalen % (1024/8))
+				s->databuf[s->datalen++] = 0;
+			k = 0;
+			for (i=0, j=0; i<s->datalen/(1024/8); i++) {
+				k = turboencode (s->databuf+i*(1024/8), 
+					   s->msgbuf+j, 1024, s->fecrate, 1);
+				if (s->inlv == 1 && (i != s->datalen/(1024/8) - 1))
+					interleave(s->msgbuf+j, k);
+				j += k;
+			}
+			s->msglen = j;
+			if (s->inlv == 1) {
+				while ((s->msglen % (2 * DataCarriers * SymbolBits)) != 0)
+					s->msgbuf[s->msglen++] = 0;
+				interleave(s->msgbuf+j-k, k + (s->msglen - j));
+			}
+	
+			if (s->tcnoresponse) {
+				s->fecrate += 2 * s->tcnoresponse;
+				s->reqfecrate += s->tcnoresponse;
+			}
+			s->tcnoresponse++;
+	
+			if (s->fecrate < 10)
+				s->fecrate = 10;
+			if (s->fecrate > 30)
+				s->fecrate = 30;
+			if (s->reqfecrate < 10)
+				s->reqfecrate = 10;
+			if (s->reqfecrate > 30)
+				s->reqfecrate = 30;
+			break;
+		}
+		temp[0]=s->datalen+3;
+		memcpy(temp+1, s->databuf, s->datalen);
+		append_crc_ccitt(temp, s->datalen+1);
+		j = bchencode (temp, temp2, s->datalen+3);
+		for (i=0; i<8*j; i++)
+			s->msgbuf[i] = (temp2[i/8] >> (i%8)) & 1;
+		s->msglen = 8*j;
+		printf("TX: BCH (Small Packet, %d bytes) FEC rate = %d -- Requested FEC rate = %d\n", s->msglen/8, 10*(s->msglen/8)/s->datalen, s->reqfecrate);
+		small = 1;
+		break;
 	}
-
 	/* pad up to full symbol length */
-	while ((s->msglen % (DataCarriers * SymbolBits)) != 0)
+	while ((s->msglen % (2 * DataCarriers * SymbolBits)) != 0)
 		s->msgbuf[s->msglen++] = 0;
 
 	/* interleave */
-	interleave(s->msgbuf, s->msglen);
-
+	if (s->inlv == 2 || (s->inlv == 1 && small) )
+		interleave(s->msgbuf, s->msglen);
 	/* make a control block */
-	enc_cblock(s->cblock, s->msglen / DataCarriers / SymbolBits, s->feclevel);
+	if (small)
+		enc_cblock(s->cblock, s->msglen / (2 * DataCarriers) / SymbolBits, s->feclevel, 31, s->reqfecrate);
+	else	enc_cblock(s->cblock, s->msglen / (2 * DataCarriers) / SymbolBits, s->feclevel, s->fecrate, s->reqfecrate);
 }
 
 static unsigned getword(void *state)
