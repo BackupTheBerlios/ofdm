@@ -1,6 +1,6 @@
 /*****************************************************************************/
 
-/*a
+/*solo por incordiar
  *      turbo.c  --  BCJR turbo code encoder/decoder
  *
  *      Copyright (C) 1998-2002
