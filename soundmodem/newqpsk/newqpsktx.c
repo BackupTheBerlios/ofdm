@@ -132,7 +132,6 @@ static void txassemble(void *state)
 	case 4:
 		if (s->datalen >= 60) {
 			/* pad up to multiple of TC packets */
-			printf("TX: TurboCodes. Length = %d --  FEC rate = %d -- Req FEC rate = %d\n", s->datalen, s->fecrate, s->reqfecrate);
 			while (s->datalen % (1024/8))
 				s->databuf[s->datalen++] = 0;
 			k = 0;
@@ -143,7 +142,6 @@ static void txassemble(void *state)
 					interleave(s->msgbuf+j, k);
 				j += k;
 			}
-			printf("TX: TurboCodes. Enviados %d paquetes.\n", s->datalen/(1024/8));
 			s->msglen = j;
 			if (s->inlv == 1) {
 				while ((s->msglen % (2 * DataCarriers * SymbolBits)) != 0)
@@ -174,7 +172,6 @@ static void txassemble(void *state)
 		for (i=0; i<8*j; i++)
 			s->msgbuf[i] = (temp2[i/8] >> (i%8)) & 1;
 		s->msglen = 8*j;
-		printf("TX: BCH (Small Packet, %d bytes) FEC rate = %d -- Requested FEC rate = %d\n", s->msglen/8, 10*(s->msglen/8)/s->datalen, s->reqfecrate);
 		small = 1;
 		break;
 	}
@@ -186,9 +183,7 @@ static void txassemble(void *state)
 	if (s->inlv == 2 || (s->inlv == 1 && small) )
 		interleave(s->msgbuf, s->msglen);
 	/* make a control block */
-	if (small)
-		enc_cblock(s->cblock, s->msglen / (2 * DataCarriers) / SymbolBits, s->feclevel, 31, s->reqfecrate);
-	else	enc_cblock(s->cblock, s->msglen / (2 * DataCarriers) / SymbolBits, s->feclevel, s->fecrate, s->reqfecrate);
+	enc_cblock(s->cblock, s->msglen / (2 * DataCarriers) / SymbolBits, s->feclevel, small?31:s->fecrate, s->reqfecrate);
 }
 
 static unsigned getword(void *state)
