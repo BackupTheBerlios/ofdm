@@ -303,7 +303,7 @@ static void do_rxpacket(struct modemchannel *chan)
 	{
 		char buf[512];
 		snprintpkt(buf, sizeof(buf), chan->pkt.hrx.buf, chan->pkt.hrx.bufcnt-2);
-		printf("Rx: %s\n", buf);
+	//	printf("Rx: %s\n", buf);
 	}
 	kiss_encodepkt(chan, chan->pkt.hrx.buf, chan->pkt.hrx.bufcnt-2);
 }
@@ -404,7 +404,7 @@ static void kiss_process_pkt(struct modemchannel *chan, u_int8_t *pkt, unsigned 
 		{
 			char buf[512];
 			snprintpkt(buf, sizeof(buf), pkt+1, len-1);
-			printf("Tx: %s\n", buf);
+//			printf("Tx: %s\n", buf);
 		}
 		return;
 
