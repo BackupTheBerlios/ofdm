@@ -1,10 +1,11 @@
+//Programa demostracion
 #include "turbo.h"
 
 int main(int argc, char **argv) 
 {
 	int rate = 30;
 	int crc = 1;
-	int maxite=20;
+	int maxite = 20;
 	int size = 1024;
 	char source[1024/8];
 	char bcoded[1024*4];
