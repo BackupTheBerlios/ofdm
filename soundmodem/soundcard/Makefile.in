@@ -1,0 +1,533 @@
+# Makefile.in generated automatically by automake 1.4-p5 from Makefile.am
+
+# Copyright (C) 1994, 1995-8, 1999, 2001 Free Software Foundation, Inc.
+# This Makefile.in is free software; the Free Software Foundation
+# gives unlimited permission to copy and/or distribute it,
+# with or without modifications, as long as this notice is preserved.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY, to the extent permitted by law; without
+# even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+# PARTICULAR PURPOSE.
+
+
+SHELL = @SHELL@
+
+srcdir = @srcdir@
+top_srcdir = @top_srcdir@
+VPATH = @srcdir@
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+
+bindir = @bindir@
+sbindir = @sbindir@
+libexecdir = @libexecdir@
+datadir = @datadir@
+sysconfdir = @sysconfdir@
+sharedstatedir = @sharedstatedir@
+localstatedir = @localstatedir@
+libdir = @libdir@
+infodir = @infodir@
+mandir = @mandir@
+includedir = @includedir@
+oldincludedir = /usr/include
+
+DESTDIR =
+
+pkgdatadir = $(datadir)/@PACKAGE@
+pkglibdir = $(libdir)/@PACKAGE@
+pkgincludedir = $(includedir)/@PACKAGE@
+
+top_builddir = ..
+
+ACLOCAL = @ACLOCAL@
+AUTOCONF = @AUTOCONF@
+AUTOMAKE = @AUTOMAKE@
+AUTOHEADER = @AUTOHEADER@
+
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@ $(AM_INSTALL_PROGRAM_FLAGS)
+INSTALL_DATA = @INSTALL_DATA@
+INSTALL_SCRIPT = @INSTALL_SCRIPT@
+transform = @program_transform_name@
+
+NORMAL_INSTALL = :
+PRE_INSTALL = :
+POST_INSTALL = :
+NORMAL_UNINSTALL = :
+PRE_UNINSTALL = :
+POST_UNINSTALL = :
+build_alias = @build_alias@
+build_triplet = @build@
+host_alias = @host_alias@
+host_triplet = @host@
+target_alias = @target_alias@
+target_triplet = @target@
+AR = @AR@
+AS = @AS@
+AUDIOFILE_CFLAGS = @AUDIOFILE_CFLAGS@
+AUDIOFILE_CONFIG = @AUDIOFILE_CONFIG@
+AUDIOFILE_LIBS = @AUDIOFILE_LIBS@
+BUILD_INCLUDED_LIBINTL = @BUILD_INCLUDED_LIBINTL@
+CATALOGS = @CATALOGS@
+CATOBJEXT = @CATOBJEXT@
+CC = @CC@
+DATADIRNAME = @DATADIRNAME@
+DLLTOOL = @DLLTOOL@
+EXEEXT = @EXEEXT@
+GENCAT = @GENCAT@
+GLIBC21 = @GLIBC21@
+GMOFILES = @GMOFILES@
+GMSGFMT = @GMSGFMT@
+GTK_CFLAGS = @GTK_CFLAGS@
+GTK_CONFIG = @GTK_CONFIG@
+GTK_LIBS = @GTK_LIBS@
+HAVE_BITTYPES = @HAVE_BITTYPES@
+HAVE_DIRECTX = @HAVE_DIRECTX@
+HAVE_IFRNEWNAME = @HAVE_IFRNEWNAME@
+HAVE_MKISS = @HAVE_MKISS@
+INSTOBJEXT = @INSTOBJEXT@
+INTLBISON = @INTLBISON@
+INTLLIBS = @INTLLIBS@
+INTLOBJS = @INTLOBJS@
+INTL_LIBTOOL_SUFFIX_PREFIX = @INTL_LIBTOOL_SUFFIX_PREFIX@
+LIBICONV = @LIBICONV@
+LIBOBJS = @LIBOBJS@
+LIBTHREAD = @LIBTHREAD@
+MAKEINFO = @MAKEINFO@
+MKINSTALLDIRS = @MKINSTALLDIRS@
+MSGFMT = @MSGFMT@
+M_PI = @M_PI@
+OBJEXT = @OBJEXT@
+PACKAGE = @PACKAGE@
+POFILES = @POFILES@
+POSUB = @POSUB@
+PTHREAD_CFLAGS = @PTHREAD_CFLAGS@
+PTHREAD_LIBS = @PTHREAD_LIBS@
+RANLIB = @RANLIB@
+USEMMX = @USEMMX@
+USEVIS = @USEVIS@
+USE_INCLUDED_LIBINTL = @USE_INCLUDED_LIBINTL@
+USE_NLS = @USE_NLS@
+VERSION = @VERSION@
+WIN32 = @WIN32@
+WINDRES = @WINDRES@
+XMLCFLAGS = @XMLCFLAGS@
+XMLLIBS = @XMLLIBS@
+XML_CONFIG = @XML_CONFIG@
+
+INCLUDES = @XMLCFLAGS@ -I$(top_srcdir)/matlib -I$(top_srcdir)/libmisc \
+        -I$(top_srcdir)/directx/include \
+        -I$(top_srcdir)/directx/include/directx6 \
+	@AUDIOFILE_CFLAGS@
+
+
+MODEMLIBS = ../afsk/libafsk.a ../fsk/libfsk.a ../pammodem/libpam.a ../pskmodem/libpsk.a ../newqpsk/libnewqpsk.a ../p3dmodem/libp3d.a
+
+man_MANS = soundmodem.8
+@WIN32_TRUE@SBINPROG = 
+@WIN32_FALSE@SBINPROG = @WIN32_FALSE@soundmodem
+@WIN32_TRUE@NOINSTPROG = 
+@WIN32_FALSE@NOINSTPROG = @WIN32_FALSE@testkiss chansim chansimberr
+@WIN32_TRUE@libpttio_a_SOURCES = @WIN32_TRUE@winptt2.c
+@WIN32_FALSE@libpttio_a_SOURCES = @WIN32_FALSE@ptt.c
+@WIN32_TRUE@libaudioio_a_SOURCES = @WIN32_TRUE@winaudioio.c audiofilein.c chansim.c
+@WIN32_FALSE@libaudioio_a_SOURCES = @WIN32_FALSE@audioio.c audiofilein.c chansim.c
+@WIN32_TRUE@liblog_a_SOURCES = @WIN32_TRUE@winlog.c
+@WIN32_FALSE@liblog_a_SOURCES = @WIN32_FALSE@log.c
+
+include_HEADERS = modem.h simd.h
+noinst_HEADERS = ppdev.h soundio.h audioio.h kisspkt.h pttio.h
+
+sbin_PROGRAMS = $(SBINPROG)
+noinst_PROGRAMS = $(NOINSTPROG)
+noinst_LIBRARIES = libcommon.a libpttio.a libaudioio.a liblog.a
+
+libcommon_a_SOURCES = simd.c snprintpkt.c
+
+soundmodem_SOURCES = kisspkt.c main.c
+soundmodem_LDADD = $(MODEMLIBS) libcommon.a liblog.a libaudioio.a libpttio.a ../matlib/libmat.a ../libmisc/libmisc.a @XMLLIBS@ @LIBTHREAD@ @AUDIOFILE_LIBS@
+
+testkiss_SOURCES = kisspkt.c testkiss.c log.c snprintpkt.c
+testkiss_LDADD = ../libmisc/libmisc.a @LIBTHREAD@
+
+chansim_SOURCES = simd.c pktsimple.c main.c
+chansim_LDADD = $(MODEMLIBS) liblog.a libaudioio.a libpttio.a ../matlib/libmat.a ../libmisc/libmisc.a @XMLLIBS@ @LIBTHREAD@ @AUDIOFILE_LIBS@
+
+chansimberr_SOURCES = simd.c pktberr.c main.c
+chansimberr_LDADD = $(MODEMLIBS) liblog.a libaudioio.a libpttio.a ../matlib/libmat.a ../libmisc/libmisc.a @XMLLIBS@ @LIBTHREAD@ @AUDIOFILE_LIBS@
+
+EXTRA_DIST = test.xml audioio.c audiofilein.c chansim.c winaudioio.c ptt.c winptt.c winptt2.c log.c winlog.c soundmodem.8
+mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
+CONFIG_HEADER = ../config.h
+CONFIG_CLEAN_FILES = 
+LIBRARIES =  $(noinst_LIBRARIES)
+
+
+DEFS = @DEFS@ -I. -I$(srcdir) -I..
+CPPFLAGS = @CPPFLAGS@
+LDFLAGS = @LDFLAGS@
+LIBS = @LIBS@
+libcommon_a_LIBADD = 
+libcommon_a_OBJECTS =  simd.$(OBJEXT) snprintpkt.$(OBJEXT)
+libpttio_a_LIBADD = 
+@WIN32_TRUE@libpttio_a_OBJECTS =  winptt2.$(OBJEXT)
+@WIN32_FALSE@libpttio_a_OBJECTS =  ptt.$(OBJEXT)
+libaudioio_a_LIBADD = 
+@WIN32_TRUE@libaudioio_a_OBJECTS =  winaudioio.$(OBJEXT) \
+@WIN32_TRUE@audiofilein.$(OBJEXT) chansim.$(OBJEXT)
+@WIN32_FALSE@libaudioio_a_OBJECTS =  audioio.$(OBJEXT) \
+@WIN32_FALSE@audiofilein.$(OBJEXT) chansim.$(OBJEXT)
+liblog_a_LIBADD = 
+@WIN32_TRUE@liblog_a_OBJECTS =  winlog.$(OBJEXT)
+@WIN32_FALSE@liblog_a_OBJECTS =  log.$(OBJEXT)
+@WIN32_TRUE@noinst_PROGRAMS = 
+@WIN32_FALSE@noinst_PROGRAMS =  testkiss$(EXEEXT) chansim$(EXEEXT) \
+@WIN32_FALSE@chansimberr$(EXEEXT)
+@WIN32_TRUE@sbin_PROGRAMS = 
+@WIN32_FALSE@sbin_PROGRAMS =  soundmodem$(EXEEXT)
+PROGRAMS =  $(noinst_PROGRAMS) $(sbin_PROGRAMS)
+
+testkiss_OBJECTS =  kisspkt.$(OBJEXT) testkiss.$(OBJEXT) log.$(OBJEXT) \
+snprintpkt.$(OBJEXT)
+testkiss_DEPENDENCIES =  ../libmisc/libmisc.a
+testkiss_LDFLAGS = 
+chansim_OBJECTS =  simd.$(OBJEXT) pktsimple.$(OBJEXT) main.$(OBJEXT)
+chansim_DEPENDENCIES =  ../afsk/libafsk.a ../fsk/libfsk.a \
+../pammodem/libpam.a ../pskmodem/libpsk.a ../newqpsk/libnewqpsk.a \
+../p3dmodem/libp3d.a liblog.a libaudioio.a libpttio.a \
+../matlib/libmat.a ../libmisc/libmisc.a
+chansim_LDFLAGS = 
+chansimberr_OBJECTS =  simd.$(OBJEXT) pktberr.$(OBJEXT) main.$(OBJEXT)
+chansimberr_DEPENDENCIES =  ../afsk/libafsk.a ../fsk/libfsk.a \
+../pammodem/libpam.a ../pskmodem/libpsk.a ../newqpsk/libnewqpsk.a \
+../p3dmodem/libp3d.a liblog.a libaudioio.a libpttio.a \
+../matlib/libmat.a ../libmisc/libmisc.a
+chansimberr_LDFLAGS = 
+soundmodem_OBJECTS =  kisspkt.$(OBJEXT) main.$(OBJEXT)
+soundmodem_DEPENDENCIES =  ../afsk/libafsk.a ../fsk/libfsk.a \
+../pammodem/libpam.a ../pskmodem/libpsk.a ../newqpsk/libnewqpsk.a \
+../p3dmodem/libp3d.a libcommon.a liblog.a libaudioio.a libpttio.a \
+../matlib/libmat.a ../libmisc/libmisc.a
+soundmodem_LDFLAGS = 
+CFLAGS = @CFLAGS@
+COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+CCLD = $(CC)
+LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
+man8dir = $(mandir)/man8
+MANS = $(man_MANS)
+
+NROFF = nroff
+HEADERS =  $(include_HEADERS) $(noinst_HEADERS)
+
+DIST_COMMON =  Makefile.am Makefile.in
+
+
+DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
+
+TAR = gtar
+GZIP_ENV = --best
+SOURCES = $(libcommon_a_SOURCES) $(libpttio_a_SOURCES) $(libaudioio_a_SOURCES) $(liblog_a_SOURCES) $(testkiss_SOURCES) $(chansim_SOURCES) $(chansimberr_SOURCES) $(soundmodem_SOURCES)
+OBJECTS = $(libcommon_a_OBJECTS) $(libpttio_a_OBJECTS) $(libaudioio_a_OBJECTS) $(liblog_a_OBJECTS) $(testkiss_OBJECTS) $(chansim_OBJECTS) $(chansimberr_OBJECTS) $(soundmodem_OBJECTS)
+
+all: all-redirect
+.SUFFIXES:
+.SUFFIXES: .S .c .o .obj .s
+$(srcdir)/Makefile.in: Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4) 
+	cd $(top_srcdir) && $(AUTOMAKE) --gnu --include-deps soundcard/Makefile
+
+Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
+	cd $(top_builddir) \
+	  && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+
+
+mostlyclean-noinstLIBRARIES:
+
+clean-noinstLIBRARIES:
+	-test -z "$(noinst_LIBRARIES)" || rm -f $(noinst_LIBRARIES)
+
+distclean-noinstLIBRARIES:
+
+maintainer-clean-noinstLIBRARIES:
+
+.c.o:
+	$(COMPILE) -c $<
+
+# FIXME: We should only use cygpath when building on Windows,
+# and only if it is available.
+.c.obj:
+	$(COMPILE) -c `cygpath -w $<`
+
+.s.o:
+	$(COMPILE) -c $<
+
+.S.o:
+	$(COMPILE) -c $<
+
+mostlyclean-compile:
+	-rm -f *.o core *.core
+	-rm -f *.$(OBJEXT)
+
+clean-compile:
+
+distclean-compile:
+	-rm -f *.tab.c
+
+maintainer-clean-compile:
+
+libcommon.a: $(libcommon_a_OBJECTS) $(libcommon_a_DEPENDENCIES)
+	-rm -f libcommon.a
+	$(AR) cru libcommon.a $(libcommon_a_OBJECTS) $(libcommon_a_LIBADD)
+	$(RANLIB) libcommon.a
+
+libpttio.a: $(libpttio_a_OBJECTS) $(libpttio_a_DEPENDENCIES)
+	-rm -f libpttio.a
+	$(AR) cru libpttio.a $(libpttio_a_OBJECTS) $(libpttio_a_LIBADD)
+	$(RANLIB) libpttio.a
+
+libaudioio.a: $(libaudioio_a_OBJECTS) $(libaudioio_a_DEPENDENCIES)
+	-rm -f libaudioio.a
+	$(AR) cru libaudioio.a $(libaudioio_a_OBJECTS) $(libaudioio_a_LIBADD)
+	$(RANLIB) libaudioio.a
+
+liblog.a: $(liblog_a_OBJECTS) $(liblog_a_DEPENDENCIES)
+	-rm -f liblog.a
+	$(AR) cru liblog.a $(liblog_a_OBJECTS) $(liblog_a_LIBADD)
+	$(RANLIB) liblog.a
+
+mostlyclean-noinstPROGRAMS:
+
+clean-noinstPROGRAMS:
+	-test -z "$(noinst_PROGRAMS)" || rm -f $(noinst_PROGRAMS)
+
+distclean-noinstPROGRAMS:
+
+maintainer-clean-noinstPROGRAMS:
+
+mostlyclean-sbinPROGRAMS:
+
+clean-sbinPROGRAMS:
+	-test -z "$(sbin_PROGRAMS)" || rm -f $(sbin_PROGRAMS)
+
+distclean-sbinPROGRAMS:
+
+maintainer-clean-sbinPROGRAMS:
+
+install-sbinPROGRAMS: $(sbin_PROGRAMS)
+	@$(NORMAL_INSTALL)
+	$(mkinstalldirs) $(DESTDIR)$(sbindir)
+	@list='$(sbin_PROGRAMS)'; for p in $$list; do \
+	  if test -f $$p; then \
+	    echo "  $(INSTALL_PROGRAM) $$p $(DESTDIR)$(sbindir)/`echo $$p|sed 's/$(EXEEXT)$$//'|sed '$(transform)'|sed 's/$$/$(EXEEXT)/'`"; \
+	     $(INSTALL_PROGRAM) $$p $(DESTDIR)$(sbindir)/`echo $$p|sed 's/$(EXEEXT)$$//'|sed '$(transform)'|sed 's/$$/$(EXEEXT)/'`; \
+	  else :; fi; \
+	done
+
+uninstall-sbinPROGRAMS:
+	@$(NORMAL_UNINSTALL)
+	list='$(sbin_PROGRAMS)'; for p in $$list; do \
+	  rm -f $(DESTDIR)$(sbindir)/`echo $$p|sed 's/$(EXEEXT)$$//'|sed '$(transform)'|sed 's/$$/$(EXEEXT)/'`; \
+	done
+
+testkiss$(EXEEXT): $(testkiss_OBJECTS) $(testkiss_DEPENDENCIES)
+	@rm -f testkiss$(EXEEXT)
+	$(LINK) $(testkiss_LDFLAGS) $(testkiss_OBJECTS) $(testkiss_LDADD) $(LIBS)
+
+chansim$(EXEEXT): $(chansim_OBJECTS) $(chansim_DEPENDENCIES)
+	@rm -f chansim$(EXEEXT)
+	$(LINK) $(chansim_LDFLAGS) $(chansim_OBJECTS) $(chansim_LDADD) $(LIBS)
+
+chansimberr$(EXEEXT): $(chansimberr_OBJECTS) $(chansimberr_DEPENDENCIES)
+	@rm -f chansimberr$(EXEEXT)
+	$(LINK) $(chansimberr_LDFLAGS) $(chansimberr_OBJECTS) $(chansimberr_LDADD) $(LIBS)
+
+soundmodem$(EXEEXT): $(soundmodem_OBJECTS) $(soundmodem_DEPENDENCIES)
+	@rm -f soundmodem$(EXEEXT)
+	$(LINK) $(soundmodem_LDFLAGS) $(soundmodem_OBJECTS) $(soundmodem_LDADD) $(LIBS)
+
+install-man8:
+	$(mkinstalldirs) $(DESTDIR)$(man8dir)
+	@list='$(man8_MANS)'; \
+	l2='$(man_MANS)'; for i in $$l2; do \
+	  case "$$i" in \
+	    *.8*) list="$$list $$i" ;; \
+	  esac; \
+	done; \
+	for i in $$list; do \
+	  if test -f $(srcdir)/$$i; then file=$(srcdir)/$$i; \
+	  else file=$$i; fi; \
+	  ext=`echo $$i | sed -e 's/^.*\\.//'`; \
+	  inst=`echo $$i | sed -e 's/\\.[0-9a-z]*$$//'`; \
+	  inst=`echo $$inst | sed '$(transform)'`.$$ext; \
+	  echo " $(INSTALL_DATA) $$file $(DESTDIR)$(man8dir)/$$inst"; \
+	  $(INSTALL_DATA) $$file $(DESTDIR)$(man8dir)/$$inst; \
+	done
+
+uninstall-man8:
+	@list='$(man8_MANS)'; \
+	l2='$(man_MANS)'; for i in $$l2; do \
+	  case "$$i" in \
+	    *.8*) list="$$list $$i" ;; \
+	  esac; \
+	done; \
+	for i in $$list; do \
+	  ext=`echo $$i | sed -e 's/^.*\\.//'`; \
+	  inst=`echo $$i | sed -e 's/\\.[0-9a-z]*$$//'`; \
+	  inst=`echo $$inst | sed '$(transform)'`.$$ext; \
+	  echo " rm -f $(DESTDIR)$(man8dir)/$$inst"; \
+	  rm -f $(DESTDIR)$(man8dir)/$$inst; \
+	done
+install-man: $(MANS)
+	@$(NORMAL_INSTALL)
+	$(MAKE) $(AM_MAKEFLAGS) install-man8
+uninstall-man:
+	@$(NORMAL_UNINSTALL)
+	$(MAKE) $(AM_MAKEFLAGS) uninstall-man8
+
+install-includeHEADERS: $(include_HEADERS)
+	@$(NORMAL_INSTALL)
+	$(mkinstalldirs) $(DESTDIR)$(includedir)
+	@list='$(include_HEADERS)'; for p in $$list; do \
+	  if test -f "$$p"; then d= ; else d="$(srcdir)/"; fi; \
+	  echo " $(INSTALL_DATA) $$d$$p $(DESTDIR)$(includedir)/$$p"; \
+	  $(INSTALL_DATA) $$d$$p $(DESTDIR)$(includedir)/$$p; \
+	done
+
+uninstall-includeHEADERS:
+	@$(NORMAL_UNINSTALL)
+	list='$(include_HEADERS)'; for p in $$list; do \
+	  rm -f $(DESTDIR)$(includedir)/$$p; \
+	done
+
+tags: TAGS
+
+ID: $(HEADERS) $(SOURCES) $(LISP)
+	list='$(SOURCES) $(HEADERS)'; \
+	unique=`for i in $$list; do echo $$i; done | \
+	  awk '    { files[$$0] = 1; } \
+	       END { for (i in files) print i; }'`; \
+	here=`pwd` && cd $(srcdir) \
+	  && mkid -f$$here/ID $$unique $(LISP)
+
+TAGS:  $(HEADERS) $(SOURCES)  $(TAGS_DEPENDENCIES) $(LISP)
+	tags=; \
+	here=`pwd`; \
+	list='$(SOURCES) $(HEADERS)'; \
+	unique=`for i in $$list; do echo $$i; done | \
+	  awk '    { files[$$0] = 1; } \
+	       END { for (i in files) print i; }'`; \
+	test -z "$(ETAGS_ARGS)$$unique$(LISP)$$tags" \
+	  || (cd $(srcdir) && etags $(ETAGS_ARGS) $$tags  $$unique $(LISP) -o $$here/TAGS)
+
+mostlyclean-tags:
+
+clean-tags:
+
+distclean-tags:
+	-rm -f TAGS ID
+
+maintainer-clean-tags:
+
+distdir = $(top_builddir)/$(PACKAGE)-$(VERSION)/$(subdir)
+
+subdir = soundcard
+
+distdir: $(DISTFILES)
+	@for file in $(DISTFILES); do \
+	  d=$(srcdir); \
+	  if test -d $$d/$$file; then \
+	    cp -pr $$d/$$file $(distdir)/$$file; \
+	  else \
+	    test -f $(distdir)/$$file \
+	    || ln $$d/$$file $(distdir)/$$file 2> /dev/null \
+	    || cp -p $$d/$$file $(distdir)/$$file || :; \
+	  fi; \
+	done
+
+info-am:
+info: info-am
+dvi-am:
+dvi: dvi-am
+check-am: all-am
+check: check-am
+installcheck-am:
+installcheck: installcheck-am
+install-exec-am: install-sbinPROGRAMS
+install-exec: install-exec-am
+
+install-data-am: install-man install-includeHEADERS
+install-data: install-data-am
+
+install-am: all-am
+	@$(MAKE) $(AM_MAKEFLAGS) install-exec-am install-data-am
+install: install-am
+uninstall-am: uninstall-sbinPROGRAMS uninstall-man \
+		uninstall-includeHEADERS
+uninstall: uninstall-am
+all-am: Makefile $(LIBRARIES) $(PROGRAMS) $(MANS) $(HEADERS)
+all-redirect: all-am
+install-strip:
+	$(MAKE) $(AM_MAKEFLAGS) AM_INSTALL_PROGRAM_FLAGS=-s install
+installdirs:
+	$(mkinstalldirs)  $(DESTDIR)$(sbindir) $(DESTDIR)$(mandir)/man8 \
+		$(DESTDIR)$(includedir)
+
+
+mostlyclean-generic:
+
+clean-generic:
+
+distclean-generic:
+	-rm -f Makefile $(CONFIG_CLEAN_FILES)
+	-rm -f config.cache config.log stamp-h stamp-h[0-9]*
+
+maintainer-clean-generic:
+mostlyclean-am:  mostlyclean-noinstLIBRARIES mostlyclean-compile \
+		mostlyclean-noinstPROGRAMS mostlyclean-sbinPROGRAMS \
+		mostlyclean-tags mostlyclean-generic
+
+mostlyclean: mostlyclean-am
+
+clean-am:  clean-noinstLIBRARIES clean-compile clean-noinstPROGRAMS \
+		clean-sbinPROGRAMS clean-tags clean-generic \
+		mostlyclean-am
+
+clean: clean-am
+
+distclean-am:  distclean-noinstLIBRARIES distclean-compile \
+		distclean-noinstPROGRAMS distclean-sbinPROGRAMS \
+		distclean-tags distclean-generic clean-am
+
+distclean: distclean-am
+
+maintainer-clean-am:  maintainer-clean-noinstLIBRARIES \
+		maintainer-clean-compile \
+		maintainer-clean-noinstPROGRAMS \
+		maintainer-clean-sbinPROGRAMS maintainer-clean-tags \
+		maintainer-clean-generic distclean-am
+	@echo "This command is intended for maintainers to use;"
+	@echo "it deletes files that may require special tools to rebuild."
+
+maintainer-clean: maintainer-clean-am
+
+.PHONY: mostlyclean-noinstLIBRARIES distclean-noinstLIBRARIES \
+clean-noinstLIBRARIES maintainer-clean-noinstLIBRARIES \
+mostlyclean-compile distclean-compile clean-compile \
+maintainer-clean-compile mostlyclean-noinstPROGRAMS \
+distclean-noinstPROGRAMS clean-noinstPROGRAMS \
+maintainer-clean-noinstPROGRAMS mostlyclean-sbinPROGRAMS \
+distclean-sbinPROGRAMS clean-sbinPROGRAMS maintainer-clean-sbinPROGRAMS \
+uninstall-sbinPROGRAMS install-sbinPROGRAMS install-man8 uninstall-man8 \
+install-man uninstall-man uninstall-includeHEADERS \
+install-includeHEADERS tags mostlyclean-tags distclean-tags clean-tags \
+maintainer-clean-tags distdir info-am info dvi-am dvi check check-am \
+installcheck-am installcheck install-exec-am install-exec \
+install-data-am install-data install-am install uninstall-am uninstall \
+all-redirect all-am all installdirs mostlyclean-generic \
+distclean-generic clean-generic maintainer-clean-generic clean \
+mostlyclean distclean maintainer-clean
+
+
+# Tell versions [3.59,3.63) of GNU make to not export all variables.
+# Otherwise a system limit (for SysV at least) may be exceeded.
+.NOEXPORT:
