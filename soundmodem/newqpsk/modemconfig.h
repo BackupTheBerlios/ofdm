@@ -21,7 +21,7 @@
 #define PhaseLevels		(1<<SymbolBits)			/* 4	*/
 
 #define DataCarriers		15
-#define FirstDataCarr		6
+#define FirstDataCarr		12
 #define DataCarrSepar		3
 
 #define TuneCarriers    	((DataCarriers+1)/4)		/* 4	*/
