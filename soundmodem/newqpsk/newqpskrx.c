@@ -137,7 +137,7 @@ void recvsymbol(struct rxstate *s, unsigned char symbol)
 
 void recvdone(struct rxstate *s, long *metric)
 {
-	unsigned char buf[2*1280];
+	unsigned char buf[10*1280];
 	unsigned char msgtemp[2*1280*8];
 	unsigned char msgtemp2[2*1280*8];
 	unsigned char msgtemp3[2*1280*8];
