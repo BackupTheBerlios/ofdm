@@ -16,7 +16,7 @@ struct rxstate {
 	float *rxwindowfunc;
 	unsigned int rxphase;
 
-        unsigned char msgbuf[DataBufSize*3*8];
+        unsigned char msgbuf[DataBufSize*3*8+100];
 	int msglen;
 	int pktlen;
 	int feclevel;

@@ -148,7 +148,7 @@ static void modmodulate(void *state, unsigned int txdelay)
 	samples = alloca(s->bufsize * sizeof(int16_t));
 	cbuf = alloca(s->bufsize * sizeof(complex));
 
-	for (i = 0; i < sizeof(s->databuf); i++)
+	for (i = 0; i < DataBufSize; i++)
 		if (!pktget(s->chan, &s->databuf[i], 1))
 			break;
 
